@@ -74,13 +74,16 @@ const Sim = (function () {
       brief: '과녁 안에 착륙하되, 착륙 속도를 3.3 m/s 이하로 줄여야 해요. 멀리 날리면서도 느리게! 날개 뒤쪽 접기(제동 장치)를 써 보세요.' }
   ];
 
+  const PASS = 60;   // 성공 기준 점수
   function scorePlane(m, r) {
     if (!m) return null;
     const d = Math.hypot(r.endX - m.tx, r.endY - m.ty);
-    let stars = d <= m.r * 0.5 ? 3 : d <= m.r ? 2 : d <= m.r * 2 ? 1 : 0;
+    // 점수: 과녁 중심 100점, 과녁 가장자리 60점, 가장자리의 2배 거리 0점
+    let points = d <= m.r ? 100 - 40 * (d / m.r) : 60 * (2 - d / m.r);
+    points = Math.max(0, Math.round(points));
     const slowOk = m.maxSpeed ? r.landingSpeed <= m.maxSpeed : true;
-    if (!slowOk && stars > 1) stars = 1;     // 속도 조건을 못 맞추면 성공이 아님
-    return { dist: d, stars: stars, success: stars >= 2, slowOk: slowOk };
+    if (!slowOk) points = Math.min(points, 50);     // 속도 조건을 못 맞추면 성공이 아님
+    return { dist: d, points: points, success: points >= PASS, slowOk: slowOk };
   }
 
   /* ---------- 태양광 자동차 ---------- */
@@ -108,6 +111,10 @@ const Sim = (function () {
 
   const TRACK = 200;   // cm
 
+  /** 달리기 점수: 4초 이하 100점, 8초 60점, 14초 0점 */
+  function raceScore(time) { return clamp0(Math.round(100 - (time - 4) * 10)); }
+  function clamp0(v) { return Math.max(0, Math.min(100, v)); }
+
   /** 출발부터 결승선까지 시간 계산 */
   function carRace(P, ratio, massKey) {
     const s = carSpeed(P, ratio, massKey);
@@ -123,7 +130,7 @@ const Sim = (function () {
 
   return {
     flyPlane: flyPlane, PLANE: PLANE, PLANE_MISSIONS: PLANE_MISSIONS, scorePlane: scorePlane,
-    solarPower: solarPower, carSpeed: carSpeed, carRace: carRace, TRACK: TRACK, MASS: MASS
+    PASS: PASS, raceScore: raceScore, solarPower: solarPower, carSpeed: carSpeed, carRace: carRace, TRACK: TRACK, MASS: MASS
   };
 })();
 

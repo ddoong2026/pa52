@@ -98,7 +98,7 @@ const T3 = (function () {
   }
 
   function createPlaneStage(container) {
-    const B = baseStage(container, 0.5);
+    const B = baseStage(container, 0.42);
     const scene = B.scene, camera = B.camera;
     scene.background = new THREE.Color(0xbfe6ff);
     scene.fog = new THREE.Fog(0xcfeeff, 45, 140);
@@ -220,7 +220,7 @@ const T3 = (function () {
         const t0 = performance.now(), SLIDE = 0.4, dt = Sim.PLANE.DT;
         const bank = -res.rud * 0.5;
         const step = function (now) {
-          const el = (now - t0) / 1000 * speed;
+          const el = Math.max(0, (now - t0) / 1000 * speed);
           const idx = Math.min(res.pts.length - 1, Math.floor(el / dt));
           const p = res.pts[idx];
           const slideT = el > res.time ? Math.min(1, (el - res.time) / SLIDE) : 0;
@@ -281,7 +281,7 @@ const T3 = (function () {
   }
 
   function createCarStage(container) {
-    const B = baseStage(container, 0.5);
+    const B = baseStage(container, 0.42);
     const scene = B.scene, camera = B.camera;
     scene.background = new THREE.Color(0x8fd3ff); scene.fog = new THREE.Fog(0xdff4ff, 60, 160);
     const hemi = new THREE.HemisphereLight(0xffffff, 0x7aa05a, 0.85); scene.add(hemi);

@@ -178,12 +178,13 @@ function m2Run(body, api) {
 
 function buildPlaneLab(box, api) {
   const M = Sim.PLANE_MISSIONS;
-  const cleared = (Store.d.best.m2cleared = Store.d.best.m2cleared || {});
+  const cleared = (Store.d.best.m2score = Store.d.best.m2score || {});
   const S = { mi: 0, power: 5, angle: 10, rudder: 0, spoiler: 0, running: false, raf: 0, ghosts: [], logs: [], res: null };
   /* --- 3D 무대 --- */
   const stageBox = h('div', { class: 'stage3d' });
   const viewBtns = h('div', { class: 'stage-views', role: 'group', 'aria-label': '카메라 보기' });
-  stageBox.append(viewBtns);
+  const scoreBadge = h('div', { class: 'stage-score', hidden: true, 'aria-live': 'polite' });
+  stageBox.append(viewBtns, scoreBadge);
   let stage = null;
   const VIEWS = [['chase', '🎥 따라가기'], ['top', '🛰️ 위에서'], ['side', '👀 옆에서']];
   function drawViews() {
@@ -223,19 +224,19 @@ function buildPlaneLab(box, api) {
 
   function drawMissions() {
     const chips = M.map(function (m, i) {
-      const st = cleared[m.id] || 0;
+      const st = cleared[m.id] || 0;   // 최고 점수
       return h('button', {
-        type: 'button', role: 'tab', 'aria-selected': S.mi === i ? 'true' : 'false', class: 'mchip' + (S.mi === i ? ' on' : '') + (st >= 2 ? ' ok' : ''),
+        type: 'button', role: 'tab', 'aria-selected': S.mi === i ? 'true' : 'false', class: 'mchip' + (S.mi === i ? ' on' : '') + (st >= Sim.PASS ? ' ok' : ''),
         disabled: S.running,
         onClick: function () { S.mi = i; S.res = null; if (stage) stage.clearGhosts(); resultBox.replaceChildren(); refresh(); }
-      }, h('span', { class: 'mchip-ico' }, m.icon), h('span', null, m.name), h('span', { class: 'stars' }, st ? '★'.repeat(st) : ''));
+      }, h('span', { class: 'mchip-ico' }, m.icon), h('span', null, m.name), h('span', { class: 'stars' }, st ? st + '점' : ''));
     });
     chips.push(h('button', {
       type: 'button', role: 'tab', 'aria-selected': S.mi === -1 ? 'true' : 'false', class: 'mchip' + (S.mi === -1 ? ' on' : ''), disabled: S.running,
       onClick: function () { S.mi = -1; S.res = null; if (stage) stage.clearGhosts(); resultBox.replaceChildren(); refresh(); }
     }, h('span', { class: 'mchip-ico' }, '🔬'), h('span', null, '자유 실험')));
     missionsBox.replaceChildren.apply(missionsBox, chips);
-    const n = M.filter(function (m) { return (cleared[m.id] || 0) >= 2; }).length;
+    const n = M.filter(function (m) { return (cleared[m.id] || 0) >= Sim.PASS; }).length;
     progress.replaceChildren(h('b', null, '성공한 미션 ' + n + ' / 4'), h('span', { class: 'muted' }, ' (3개 이상 성공하면 다음 단계로!)'),
       h('div', { class: 'bar' }, h('div', { class: 'bar-fill', style: { width: n / 4 * 100 + '%' } })));
     if (n >= 3) api.unlock();
@@ -295,7 +296,7 @@ function buildPlaneLab(box, api) {
     const res = Sim.flyPlane(params);
     res.rud = S.rudder; res.spo = S.spoiler; res.params = params;
     S.res = res; S.running = true;
-    resultBox.replaceChildren();
+    resultBox.replaceChildren(); scoreBadge.hidden = true;
     drawMissions(); drawCtrl();
     Sound.whoosh();
     const speed = (document.getElementById('slow') || { checked: true }).checked ? 0.5 : 1;
@@ -317,12 +318,12 @@ function buildPlaneLab(box, api) {
     ];
     if (sc) {
       if (sc.success) {
-        if (!cleared[m.id] || cleared[m.id] < sc.stars) cleared[m.id] = sc.stars;
+        if (!cleared[m.id] || cleared[m.id] < sc.points) cleared[m.id] = sc.points;
         Store.save(); Sound.win(); celebrate(['⭐', '✨']);
-        lines.unshift(h('div', { class: 'rs-top good' }, '🎯 성공! ' + '★'.repeat(sc.stars) + '☆'.repeat(3 - sc.stars)));
+        lines.unshift(h('div', { class: 'rs-top good' }, '🎯 성공! ' + sc.points + '점'));
       } else {
         Sound.bad();
-        lines.unshift(h('div', { class: 'rs-top' }, sc.stars === 1 ? '😮 아깝다! 과녁 근처에 떨어졌어요.' : '🤔 과녁에서 많이 벗어났어요.'));
+        lines.unshift(h('div', { class: 'rs-top' }, (sc.points >= 30 ? '😮 아깝다! ' : '🤔 과녁에서 많이 벗어났어요. ') + sc.points + '점 (60점 이상이면 성공)'));
         lines.push(h('p', { class: 'hint' }, '💡 ' + planeHint(m, res, sc)));
       }
     } else {
@@ -331,9 +332,10 @@ function buildPlaneLab(box, api) {
       lines.push(h('p', { class: 'hint' }, '💡 ' + freeHint(res)));
     }
     resultBox.replaceChildren.apply(resultBox, lines);
+    if (sc) { scoreBadge.hidden = false; scoreBadge.className = 'stage-score ' + (sc.success ? 'good' : 'bad'); scoreBadge.replaceChildren(h('b', null, sc.points + '점'), h('span', null, sc.success ? '🎯 성공!' : '😮 다시 도전!')); }
     S.logs.unshift({
       power: S.power, rud: S.rudder, spo: S.spoiler, dist: res.endX, lat: res.endY, v: res.landingSpeed,
-      mission: m ? m.name : '자유', result: sc ? (sc.success ? '성공 ' + '★'.repeat(sc.stars) : '실패') : '-'
+      mission: m ? m.name : '자유', result: sc ? (sc.points + '점' + (sc.success ? ' ✅' : '')) : '-'
     });
     S.logs = S.logs.slice(0, 6);
     drawLog(); drawMissions(); drawCtrl();
@@ -379,9 +381,7 @@ function buildPlaneLab(box, api) {
         })))));
   }
 
-  const left = h('div', { class: 'lab-views' }, stageBox, resultBox);
-  const right = h('div', { class: 'lab-side' }, preview, ctrl);
-  box.append(progress, missionsBox, brief, h('div', { class: 'lab-main' }, left, right), logBox);
+  box.append(progress, missionsBox, brief, h('div', { class: 'lab-main' }, stageBox, h('div', { class: 'lab-side' }, preview, ctrl), resultBox), logBox);
   stage = T3.make('plane', stageBox);
   Cleanup.add(function () { stage.dispose(); });
   drawViews(); refresh(); drawLog();
@@ -389,13 +389,13 @@ function buildPlaneLab(box, api) {
 
 /* ---------- 4. 평가 ---------- */
 function m2Eval(body) {
-  const cl = Store.d.best.m2cleared || {};
-  const n = Sim.PLANE_MISSIONS.filter(function (m) { return (cl[m.id] || 0) >= 2; }).length;
+  const cl = Store.d.best.m2score || {};
+  const n = Sim.PLANE_MISSIONS.filter(function (m) { return (cl[m.id] || 0) >= Sim.PASS; }).length;
   const total = Object.keys(cl).reduce(function (a, k) { return a + (cl[k] || 0); }, 0);
 
   body.append(h('div', { class: 'summary-card' },
     h('div', { class: 'big' }, n >= 3 ? '🏆' : '✈️'),
-    h('div', null, h('h3', null, '내 비행 결과'), h('p', null, '성공한 미션 ' + n + '개 · 별 ' + total + '개 ⭐'))));
+    h('div', null, h('h3', null, '내 비행 결과'), h('p', null, '성공한 미션 ' + n + '개 · 최고 점수 합계 ' + total + '점 / 400점'))));
 
   /* 예상 점검 */
   const plan = Store.d.best.m2plan || {};

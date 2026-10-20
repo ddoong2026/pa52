@@ -310,7 +310,8 @@ function carLab(box, done) {
   const viewBtns = h('div', { class: 'stage-views', role: 'group', 'aria-label': '카메라 보기' });
   const hud = h('div', { class: 'stage-hud' }, '⏱ 0.0 초');
   const sunBadge = h('div', { class: 'sun-badge', 'aria-hidden': 'true' }, h('span', { class: 'sun-ico' }, '☀️'), h('span', { class: 'cloud-ico' }, '☁️'));
-  stageBox.append(viewBtns, hud, sunBadge);
+  const scoreBadge = h('div', { class: 'stage-score', hidden: true, 'aria-live': 'polite' });
+  stageBox.append(viewBtns, hud, sunBadge, scoreBadge);
   let stage = null;
   const VIEWS = [['side', '👀 옆에서'], ['follow', '🎥 따라가기'], ['top', '🛰️ 위에서']];
   function drawViews() {
@@ -375,14 +376,14 @@ function carLab(box, done) {
 
   function run() {
     if (S.running) return;
-    S.running = true; result.replaceChildren(); drawCtrl();
+    S.running = true; result.replaceChildren(); scoreBadge.hidden = true; drawCtrl();
     const p = P(); const sp = Sim.carSpeed(p, S.ratio, S.mass);
     const GAS_V = 45;
     const st = { mine: 0, gas: 0, t: 0, stalled: sp.v <= 0.5, vm: 0, gasMoving: true };
     let last = performance.now(), acc = 0, finishT = null, puffCount = 0;
     Sound.whoosh();
     const step = function (now) {
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
       st.t += dt;
       st.vm += (sp.v - st.vm) * 2.2 * dt;
       if (finishT === null) st.mine = Math.min(Sim.TRACK, st.mine + st.vm * dt);
@@ -409,12 +410,12 @@ function carLab(box, done) {
       lines.push(h('p', { class: 'hint' }, '💡 ' + carHint(p, sp)));
     } else {
       const ok = time <= TARGET;
-      const stars = time <= 5.5 ? 3 : (time <= TARGET ? 2 : 1);
+      const score = Sim.raceScore(time);
       if (ok) {
         Sound.win(); celebrate(['☀️', '⭐', '🌿']);
-        const b = m3flags(); if (!b.bestTime || time < b.bestTime) b.bestTime = +time.toFixed(1); done2();
+        const b = m3flags(); if (!b.bestTime || time < b.bestTime) b.bestTime = +time.toFixed(1); if (!b.bestScore || score > b.bestScore) b.bestScore = score; done2();
       } else Sound.bad();
-      lines.push(h('div', { class: 'rs-top ' + (ok ? 'good' : '') }, ok ? '🎯 성공! ' + '★'.repeat(stars) + '☆'.repeat(3 - stars) : '😮 도착했지만 ' + TARGET + '초 안에는 못 들어왔어요.'));
+      lines.push(h('div', { class: 'rs-top ' + (ok ? 'good' : '') }, (ok ? '🎯 성공! ' : '😮 도착했지만 ' + TARGET + '초 안에는 못 들어왔어요. ') + score + '점'));
       lines.push(h('div', { class: 'rs-grid' },
         h('div', null, h('span', null, '결승선 도착'), h('b', null, time.toFixed(1) + '초')),
         h('div', null, h('span', null, '내 자동차가 내뿜은 배기가스'), h('b', null, '💨 0개')),
@@ -423,6 +424,9 @@ function carLab(box, done) {
       else lines.push(h('p', { class: 'hint good' }, '🌿 햇빛만으로 달렸어요. 달리는 동안 오염 물질은 하나도 나오지 않았어요!'));
     }
     result.replaceChildren.apply(result, lines);
+    const pts = time === null ? 0 : Sim.raceScore(time);
+    scoreBadge.hidden = false; scoreBadge.className = 'stage-score ' + (time !== null && time <= TARGET ? 'good' : 'bad');
+    scoreBadge.replaceChildren(h('b', null, pts + '점'), h('span', null, time !== null && time <= TARGET ? '🎯 성공!' : '😮 다시 도전!'));
     st.gasMoving = false; stage.update(st, 0.016);
   }
   function done2() { done('race'); }
@@ -440,8 +444,8 @@ function carLab(box, done) {
   }
 
   box.append(h('p', { class: 'lead' }, '햇빛, 전지판 기울기, 기어비, 몸체 무게를 바꿔서 ', h('b', null, TARGET + '초 안에'), ' 결승선(2 m)에 도착시켜 보세요! 휘발유 자동차와 배기가스도 비교해 봐요.'),
-    h('div', { class: 'lab-main car' }, h('div', { class: 'lab-views' }, stageBox, result), h('div', { class: 'lab-side' }, live, ctrl)));
-  if (m3flags().bestTime) box.append(h('p', { class: 'muted' }, '🏆 내 최고 기록: ' + m3flags().bestTime + '초'));
+    h('div', { class: 'lab-main car' }, stageBox, h('div', { class: 'lab-side' }, live, ctrl), result));
+  if (m3flags().bestTime) box.append(h('p', { class: 'muted' }, '🏆 내 최고 기록: ' + m3flags().bestTime + '초 (' + (m3flags().bestScore || 0) + '점)'));
   stage = T3.make('car', stageBox);
   Cleanup.add(function () { stage.dispose(); });
   drawViews(); drawCtrl(); drawLive(); scene();
@@ -453,7 +457,7 @@ function m3Eval(body) {
   const car = ECO_CARS.filter(function (c) { return c.id === f.chosen; })[0];
   body.append(h('div', { class: 'summary-card' }, h('div', { class: 'big' }, '🌞'),
     h('div', null, h('h3', null, '내 친환경 자동차'),
-      h('p', null, (car ? car.icon + ' ' + car.name + '의 특징을 골랐어요. ' : '') + (f.bestTime ? '최고 기록 ' + f.bestTime + '초 · 배기가스 0개!' : '달리기 실험에서 성공하면 기록이 남아요.')))));
+      h('p', null, (car ? car.icon + ' ' + car.name + '의 특징을 골랐어요. ' : '') + (f.bestTime ? '최고 ' + (f.bestScore || 0) + '점 (' + f.bestTime + '초) · 배기가스 0개!' : '달리기 실험에서 성공하면 기록이 남아요.')))));
   body.append(h('div', { class: 'activity' }, h('h3', null, '내가 만든 친환경 자동차를 평가해 봅시다.'),
     ratingRow('m3.r1', '문제를 해결하기 위해 세운 계획대로 만들었나요?'),
     ratingRow('m3.r2', '친환경 에너지를 활용하여 움직이게 했나요?'),

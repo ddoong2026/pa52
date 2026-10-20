@@ -420,3 +420,19 @@ th { background: #eef3fb; }
 .cloud-ico { position: absolute; left: -10px; top: 8px; font-size: 3rem; opacity: 0; transition: opacity .3s; }
 .sun-badge.cloudy .cloud-ico { opacity: 1; }
 .stage-fallback { padding: 24px; text-align: center; line-height: 1.5; background: #fff3d1; font-weight: 700; }
+
+/* ---------- 가로로 꽉 찬 시뮬레이션 + 아래 조절 버튼 ---------- */
+.lab-main, .lab-main.car { display: block; }
+.lab-main .stage3d { width: 100%; }
+.lab-side { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 14px; margin-top: 12px; align-items: start; }
+.lab-ctrl { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; align-items: stretch; }
+.lab-ctrl .lab-actions, .lab-ctrl > p { grid-column: 1 / -1; }
+.lab-actions { justify-content: center; }
+.lab-main .lab-result { margin-top: 12px; }
+.stage-score { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 36px; border-radius: 24px; color: #fff; line-height: 1.2; box-shadow: 0 10px 30px rgba(0,0,0,.35); animation: pop .35s; }
+.stage-score[hidden] { display: none; }
+.stage-score b { font-size: 3.2rem; }
+.stage-score span { font-size: 1.2rem; font-weight: 800; }
+.stage-score.good { background: rgba(18,160,95,.95); } .stage-score.bad { background: rgba(229,68,109,.92); }
+@media (max-width: 880px) { .lab-side { grid-template-columns: 1fr; } .stage-score b { font-size: 2.2rem; } }
+.plane-preview svg { max-height: 190px; }

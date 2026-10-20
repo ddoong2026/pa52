@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/com/AppData/Local/Temp/claude/C--Users-com-Downloads-hahah/7bffa956-ecbf-498a-913f-9f64b5bdf5d9/scratchpad/serve.js", "C:/Users/com/Downloads/hahah", "5173"],
+      "port": 5173
+    }
+  ]
+}

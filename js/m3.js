@@ -129,6 +129,7 @@ function m3Ideas(body, api) {
           : h('div', { class: 'flip-front' }, h('div', { class: 'big' }, c.icon), h('b', null, c.name), h('span', null, '눌러서 뒤집기')));
     }));
   };
+  drawCards();
   body.append(grid, h('div', { class: 'gas-ref' }, gas(5), h('span', null, '← 휘발유 자동차 (비교용)')),
     tip('ℹ️', '전기 자동차는 달리는 동안은 배기가스가 없지만, 전기를 만드는 방법에 따라 환경에 주는 영향이 달라질 수 있어요.'));
 
